@@ -151,7 +151,8 @@ def fuzzy_system(bmi_thresh, defuzz_method):
     rule15 = ctrl.Rule(ncp['low'] & ch2o['low'], score['rendah'])
 
     # 4. Control System Fuzzy
-    rules = [rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12]
+    # 4. Control System Fuzzy
+    rules = [rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12, rule13, rule14, rule15]
     obesity_ctrl = ctrl.ControlSystem(rules)
     obesity_sim = ctrl.ControlSystemSimulation(obesity_ctrl)
 
