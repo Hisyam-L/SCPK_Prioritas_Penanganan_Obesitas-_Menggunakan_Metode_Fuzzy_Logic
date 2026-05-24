@@ -351,7 +351,7 @@ elif menu == "🏆 Hitung & Peringkat SPK":
             total_rows = len(df)
             for i, (idx, row) in enumerate(df.iterrows()):
                 progress_bar.progress((i + 1) / total_rows)
-                status_text.text(f"Menghitung data {idx + 1} dari {total_rows}...")
+                status_text.text(f"Menghitung data {i + 1} dari {total_rows}...")
 
                 val_bmi = row['BMI']
                 val_faf = np.clip(row['FAF'] * st.session_state.faf_weight, 0, 3)
@@ -394,8 +394,7 @@ elif menu == "🏆 Hitung & Peringkat SPK":
             res_df = pd.DataFrame(process_data)
 
             # Tabel proses defuzzifikasi
-            st.subheader("🔬 Tabel Proses Defuzzifikasi (Sampel 10 Data)")
-            st.caption("Tabel ini menunjukkan proses akhir sistem fuzzy: dari nilai input crisp → skor fuzzy (defuzzifikasi) → kategori keparahan.")
+            st.subheader("🔬 Tabel Proses Defuzzifikasi (Sampel 10 Data teratas)")
 
             defuzz_table = res_df.head(10)[['Index_Asli', 'Age', 'Gender', 'BMI_Value', 'FAF_Value', 'FCVC_Value', 'CH2O_Value', 'NCP_Value', 'Skor_Fuzzy', 'Kategori_Keparahan']].copy()
             defuzz_table = defuzz_table.rename(columns={
@@ -419,13 +418,11 @@ elif menu == "🏆 Hitung & Peringkat SPK":
                 st.warning(f"⚠️ {gagal} dari {total_rows} data ({gagal/total_rows*100:.1f}%) tidak cocok dengan rules yang ada, skornya otomatis 0.")
 
             st.subheader("🏅 Hasil Peringkat Akhir (Diurutkan dari Paling Parah)")
-
             res_df = res_df.sort_values(by="Skor_Fuzzy", ascending=False).reset_index(drop=True)
             res_df.index = res_df.index + 1
             res_df = res_df.rename_axis("Peringkat")
 
             top_n = st.session_state.top_n
-
             def highlight_top(s, n):
                 return ['background-color: #f79525; color: black' if i < n else '' for i in range(len(s))]
 
@@ -433,18 +430,38 @@ elif menu == "🏆 Hitung & Peringkat SPK":
             st.dataframe(styled_df, use_container_width=True)
 
             st.markdown("---")
-            st.subheader(f"📊 Bar Chart Top 20 Kasus Obesitas Paling Parah")
 
-            top_20 = res_df.head(20).copy()
-            top_20['Label'] = top_20.apply(lambda x: f"Idx {x['Index_Asli']} ({x['Gender']}, {x['Age']} th)", axis=1)
+            st.subheader("📊 Distribusi Tingkat Keparahan Obesitas (Keseluruhan)")
 
-            fig_bar, ax_bar = plt.subplots(figsize=(10, 6))
-            sns.barplot(data=top_20, x='Skor_Fuzzy', y='Label', ax=ax_bar, palette="Reds_r")
-            ax_bar.set_xlabel("Skor Keparahan Fuzzy")
-            ax_bar.set_ylabel("Identitas Pasien")
-            ax_bar.set_title("Top 20 Skor Fuzzy Tertinggi")
+            # Hitung jumlah per kategori
+            kategori_counts = res_df['Kategori_Keparahan'].value_counts().reindex(
+                ['Rendah', 'Sedang', 'Tinggi', 'Sangat Tinggi'], fill_value=0
+            )
 
-            st.pyplot(fig_bar)
+            col_pie, col_bar = st.columns(2)
+
+            with col_pie:
+                fig_pie, ax_pie = plt.subplots(figsize=(5, 5))
+                colors = ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c']
+                ax_pie.pie(
+                    kategori_counts.values,
+                    labels=kategori_counts.index,
+                    autopct='%1.1f%%',
+                    colors=colors,
+                    startangle=90
+                )
+                ax_pie.set_title("Proporsi Kategori Keparahan")
+                st.pyplot(fig_pie)
+
+            with col_bar:
+                fig_dist, ax_dist = plt.subplots(figsize=(5, 5))
+                ax_dist.bar(kategori_counts.index, kategori_counts.values, color=colors)
+                ax_dist.set_xlabel("Kategori Keparahan")
+                ax_dist.set_ylabel("Jumlah Data")
+                ax_dist.set_title("Jumlah Data per Kategori Keparahan")
+                for i, v in enumerate(kategori_counts.values):
+                    ax_dist.text(i, v + 5, str(v), ha='center', fontweight='bold')
+                st.pyplot(fig_dist)
 
 # =============================================
 # HALAMAN 4: ABOUT PROGRAM DAN ANGGOTA KELOMPOK
