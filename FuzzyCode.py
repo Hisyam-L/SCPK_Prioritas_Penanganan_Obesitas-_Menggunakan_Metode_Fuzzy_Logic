@@ -61,7 +61,7 @@ def load_data(uploaded_file=None):
         if 'BMI' not in df.columns:
             df['BMI'] = df['Weight'] / (df['Height'] ** 2)
         return df
-    
+
     # Kalau file tidak ditemukan (misal nama file salah atau file tidak ada), kembalikan None (kosong) daripada crash dengan error merah.
     except FileNotFoundError:
         return None
@@ -81,7 +81,7 @@ def fuzzy_system(bmi_thresh, defuzz_method):
     ch2o = ctrl.Antecedent(np.arange(1, 3.1, 0.1), 'ch2o')
     ncp = ctrl.Antecedent(np.arange(1, 4.1, 0.1), 'ncp')
 
-    score = ctrl.Consequent(np.arange(0, 101, 1), 'score', 
+    score = ctrl.Consequent(np.arange(0, 101, 1), 'score',
     defuzzify_method=defuzz_method.lower())
 
     # 2. Fungsi Keanggotaan
@@ -112,18 +112,43 @@ def fuzzy_system(bmi_thresh, defuzz_method):
     score['sangat_tinggi'] = fuzz.trapmf(score.universe, [70, 85, 100, 100])
 
     # 3. Rule Base (10 Aturan Logis)
-    rule1 = ctrl.Rule(bmi['obese'] & faf['low'], score['sangat_tinggi'])
-    rule2 = ctrl.Rule(bmi['obese'] & faf['medium'] & fcvc['low'], score['sangat_tinggi'])
-    rule3 = ctrl.Rule(bmi['overweight'] & faf['low'] & ch2o['low'], score['tinggi'])
-    rule4 = ctrl.Rule(bmi['overweight'] & faf['high'] & ncp['high'], score['sedang'])
-    rule5 = ctrl.Rule(bmi['normal'] & faf['high'] & fcvc['high'], score['rendah'])
-    rule6 = ctrl.Rule(bmi['normal'] & faf['low'] & ncp['high'], score['sedang'])
-    rule7 = ctrl.Rule(bmi['underweight'] & faf['high'], score['rendah'])
-    rule8 = ctrl.Rule(bmi['underweight'] & ncp['low'], score['rendah'])
-    rule9 = ctrl.Rule(bmi['obese'] & ch2o['high'] & faf['high'], score['tinggi'])
-    rule10 = ctrl.Rule(bmi['normal'] & faf['medium'] & ch2o['medium'], score['rendah'])
-    rule11 = ctrl.Rule(bmi['overweight'] & fcvc['low'] & ncp['high'], score['tinggi'])
-    rule12 = ctrl.Rule(bmi['normal'] & faf['low'] & ch2o['low'] & fcvc['low'], score['sedang'])
+    rule1 = ctrl.Rule(bmi['obese'] & (faf['low'] | fcvc['low'] | ncp['high']), score['sangat_tinggi'])
+    # Jika Obese kurang minum air ATAU olahraga sedang
+    rule2 = ctrl.Rule(bmi['obese'] & (ch2o['low'] | faf['medium']), score['sangat_tinggi'])
+    # Jika Obese tapi rajin olahraga DAN makan sayur (sedikit turun ke tinggi)
+    rule3 = ctrl.Rule(bmi['obese'] & faf['high'] & fcvc['high'], score['tinggi'])
+    # Catch-all aman untuk Obese agar tidak ada blank spot
+    rule4 = ctrl.Rule(bmi['obese'] & ch2o['medium'], score['sangat_tinggi'])
+
+    # --- KELOMPOK OVERWEIGHT (Prioritas Menengah ke Tinggi) ---
+    # Jika Overweight dan punya kebiasaan sangat buruk
+    rule5 = ctrl.Rule(bmi['overweight'] & (faf['low'] | fcvc['low'] | ncp['high'] | ch2o['low']), score['tinggi'])
+    # Jika Overweight tapi kebiasaan cukup baik
+    rule6 = ctrl.Rule(bmi['overweight'] & (faf['medium'] | faf['high']) & (fcvc['medium'] | fcvc['high']), score['sedang'])
+    # Catch-all aman untuk Overweight
+    rule7 = ctrl.Rule(bmi['overweight'] & (ch2o['high'] | ch2o['medium']), score['sedang'])
+
+    # --- KELOMPOK NORMAL (Prioritas Rendah ke Menengah) ---
+    # Jika Normal tapi kebiasaan buruk (warning bisa naik berat badan)
+    rule8 = ctrl.Rule(bmi['normal'] & (faf['low'] | ncp['high'] | fcvc['low']), score['sedang'])
+    # Jika Normal dan kebiasaan baik
+    rule9 = ctrl.Rule(bmi['normal'] & (faf['high'] | fcvc['high']), score['rendah'])
+    # Jika Normal dan aktivitas sedang
+    rule10 = ctrl.Rule(bmi['normal'] & (faf['medium'] | ch2o['medium']), score['rendah'])
+    # Catch-all aman untuk Normal
+    rule11 = ctrl.Rule(bmi['normal'] & ch2o['high'], score['rendah'])
+
+    # --- KELOMPOK UNDERWEIGHT (Bukan Target Penanganan Obesitas) ---
+    # Semua yang underweight langsung mendapat prioritas rendah untuk penanganan *obesitas*
+    rule12 = ctrl.Rule(bmi['underweight'], score['rendah'])
+
+    # --- ATURAN PENGUAT KONDISI EKSTREM (Independen dari BMI) ---
+    # Jika gaya hidup sangat kacau (makan banyak, no olahraga, no air)
+    rule13 = ctrl.Rule(ncp['high'] & faf['low'] & ch2o['low'], score['tinggi'])
+    # Jika gaya hidup sangat sehat
+    rule14 = ctrl.Rule(faf['high'] & fcvc['high'] & ch2o['high'], score['rendah'])
+    # Jika kurang gizi (kurang makan, kurang minum)
+    rule15 = ctrl.Rule(ncp['low'] & ch2o['low'], score['rendah'])
 
     # 4. Control System Fuzzy
     rules = [rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8, rule9, rule10, rule11, rule12]
@@ -156,7 +181,7 @@ st.sidebar.markdown("---")
 # ==========================================
 if menu == "📊 Dataset":
     st.title("📊 Dataset")
-    
+
     st.markdown("""Silakan upload file CSV dataset.""")
     uploaded_file = st.file_uploader("Upload CSV Dataset", type=['csv'])
 
@@ -239,7 +264,7 @@ elif menu == "⚙️ Konfigurasi Fuzzy":
 
     st.markdown("### Pengaturan Variabel")
     col_w1, col_w2, col_w3= st.columns(3)
-    
+
     with col_w1:
         st.session_state.bmi_ow_thresh = st.slider("Batas Awal Overweight (BMI Threshold)", min_value=23.0, max_value=28.0, value=st.session_state.bmi_ow_thresh, step=0.5)
         st.caption("📏 Batas nilai BMI seseorang mulai dianggap kelebihan berat badan. Standar Asia = 23.0, Standar WHO = 25.0.")
@@ -301,25 +326,29 @@ elif menu == "⚙️ Konfigurasi Fuzzy":
     st.markdown("---")
     st.subheader("📚 Tabel Rule Base (Aturan Fuzzy)")
     rules_data = {
-        "Rule": [f"Rule {i}" for i in range(1, 13)],
+        "Rule": [f"Rule {i}" for i in range(1, 16)],
         "Kondisi (IF)": [
-            "BMI is Obese AND FAF is Low",
-            "BMI is Obese AND FAF is Medium AND FCVC is Low",
-            "BMI is Overweight AND FAF is Low AND CH2O is Low",
-            "BMI is Overweight AND FAF is High AND NCP is High",
-            "BMI is Normal AND FAF is High AND FCVC is High",
-            "BMI is Normal AND FAF is Low AND NCP is High",
-            "BMI is Underweight AND FAF is High",
-            "BMI is Underweight AND NCP is Low",
-            "BMI is Obese AND CH2O is High AND FAF is High",
-            "BMI is Normal AND FAF is Medium AND CH2O is Medium",
-            "BMI is Overweight AND FCVC is Low AND NCP is High",
-            "BMI is Normal AND FAF is Low AND CH2O is Low AND FCVC is Low"
+            "BMI is Obese AND (FAF is Low OR FCVC is Low OR NCP is High)",
+            "BMI is Obese AND (CH2O is Low OR FAF is Medium)",
+            "BMI is Obese AND FAF is High AND FCVC is High",
+            "BMI is Obese AND CH2O is Medium",
+            "BMI is Overweight AND (FAF is Low OR FCVC is Low OR NCP is High OR CH2O is Low)",
+            "BMI is Overweight AND (FAF is Medium OR High) AND (FCVC is Medium OR High)",
+            "BMI is Overweight AND (CH2O is High OR Medium)",
+            "BMI is Normal AND (FAF is Low OR NCP is High OR FCVC is Low)",
+            "BMI is Normal AND (FAF is High OR FCVC is High)",
+            "BMI is Normal AND (FAF is Medium OR CH2O is Medium)",
+            "BMI is Normal AND CH2O is High",
+            "BMI is Underweight (Semua Kondisi)",
+            "NCP is High AND FAF is Low AND CH2O is Low (Ekstrem Buruk)",
+            "FAF is High AND FCVC is High AND CH2O is High (Ekstrem Sehat)",
+            "NCP is Low AND CH2O is Low"
         ],
         "Keputusan (THEN) Skor": [
-            "Sangat Tinggi", "Sangat Tinggi", "Tinggi", "Sedang",
-            "Rendah", "Sedang", "Rendah", "Rendah",
-            "Tinggi", "Rendah", "Tinggi", "Sedang"
+            "Sangat Tinggi", "Sangat Tinggi", "Tinggi", "Sangat Tinggi",
+            "Tinggi", "Sedang", "Sedang",
+            "Sedang", "Rendah", "Rendah", "Rendah",
+            "Rendah", "Tinggi", "Rendah", "Rendah"
         ]
     }
     st.table(pd.DataFrame(rules_data))
@@ -385,7 +414,7 @@ elif menu == "🏆 Hitung & Peringkat SPK":
                     "Skor_Fuzzy"         : round(output_score, 2),
                     "Kategori_Keparahan" : keparahan,
                 })
-            
+
             status_text.text("Perhitungan Selesai!")
             time.sleep(0.5)
             progress_bar.empty()
@@ -477,7 +506,7 @@ elif menu == "👥 Tentang Program & Kelompok":
     with col2:
         st.markdown(""" **Nama:** Muhamad Atallah Alfa Dzaky""")
         st.markdown(""" **NIM:** 123240105""")
-    
+
     st.markdown("---")
 
     st.markdown("### Informasi Dataset")
@@ -493,7 +522,7 @@ elif menu == "👥 Tentang Program & Kelompok":
     st.write("- Sistem mengimplementasikan Algoritma **Fuzzy Mamdani**")
     st.write("- **Fungsi Keanggotaan** menggunakan kombinasi Kurva Segitiga (`trimf`) dan Trapesium (`trapmf`)")
     st.write("- Defuzzifikasi berbasis perhitungan area (mendukung *Centroid, Bisector, MOM*)")
-    
+
     st.markdown("---")
 
     st.markdown("### **Defuzzifikasi**")
@@ -502,16 +531,16 @@ elif menu == "👥 Tentang Program & Kelompok":
 
     with tab1:
         st.markdown("**Centroid (Center of Gravity)**")
-        st.markdown(""" 
+        st.markdown("""
         Metode paling umum digunakan. Mencari **titik berat** dari keseluruhan area hasil agregasi output fuzzy.
-        Hasilnya adalah nilai tengah yang merepresentasikan 'pusat massa' dari bentuk fuzzy tersebut.      
+        Hasilnya adalah nilai tengah yang merepresentasikan 'pusat massa' dari bentuk fuzzy tersebut.
         > *Analogi:* Seperti mencari titik keseimbangan sebuah bangun datar di atas ujung pensil.
         - ⚙️ Default yang digunakan `skfuzzy` jika tidak disebutkan
         """)
 
     with tab2:
         st.markdown("**Bisector (Garis Pembagi)**")
-        st.markdown(""" 
+        st.markdown("""
         Mencari **garis vertikal** yang membagi total area hasil fuzzy menjadi **dua bagian sama besar** (50%-50%).
         Mirip dengan Centroid, namun fokus pada pembagian luas area, bukan titik berat.
         > *Analogi:* Seperti memotong sebuah pizza tidak beraturan menjadi dua bagian dengan luas yang sama.
