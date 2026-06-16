@@ -456,7 +456,7 @@ def fuzzy_system(bmi_thresh, defuzz_method):
         rule_ob_high_high_ncphigh, rule_ob_high_high_ncp_low_med,
     ]
 
-    # SESUDAH (benar)
+        # SESUDAH (benar)
     obesity_ctrl = ctrl.ControlSystem(rules)
     obesity_sim = ctrl.ControlSystemSimulation(obesity_ctrl)
     return obesity_sim, bmi, faf, fcvc, ch2o, ncp, score
