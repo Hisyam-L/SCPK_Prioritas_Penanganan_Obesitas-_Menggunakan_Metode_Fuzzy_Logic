@@ -120,20 +120,10 @@ def fuzzy_system(bmi_thresh, defuzz_method):
     score["tinggi"] = fuzz.trimf(score.universe, [50, 65, 80])
     score["sangat_tinggi"] = fuzz.trapmf(score.universe, [70, 85, 100, 100])
 
-    # ============================================================
-    # UNDERWEIGHT: 81 rules → 1 rule
-    # Semua kombinasi faf/fcvc/ch2o/ncp → rendah, jadi tidak perlu dicantumkan
+
     # ============================================================
     rule_uw = ctrl.Rule(bmi["underweight"], score["rendah"])
 
-    # ============================================================
-    # NORMAL: 81 rules → 15 rules
-    # Prinsip: faf=low → selalu sedang (27 rules jadi 1)
-    #          faf=med, fcvc=low → selalu sedang (9 rules jadi 1)
-    #          dst.
-    # ============================================================
-
-    # faf=low: semua 27 kombinasi fcvc/ch2o/ncp → sedang → 1 rule
     rule_nm_faf_low = ctrl.Rule(
         bmi["normal"] & faf["low"], score["sedang"]
     )
@@ -247,10 +237,6 @@ def fuzzy_system(bmi_thresh, defuzz_method):
         bmi["normal"] & faf["high"] & fcvc["high"], score["rendah"]
     )
 
-    # ============================================================
-    # OVERWEIGHT: 81 rules → ~13 rules
-    # ============================================================
-
     # faf=low, fcvc=low: semua → tinggi → 1 rule
     rule_ow_faf_low_fcvc_low = ctrl.Rule(
         bmi["overweight"] & faf["low"] & fcvc["low"], score["tinggi"]
@@ -296,10 +282,6 @@ def fuzzy_system(bmi_thresh, defuzz_method):
     rule_ow_faf_high = ctrl.Rule(
         bmi["overweight"] & faf["high"], score["sedang"]
     )
-
-    # ============================================================
-    # OBESE: 81 rules → ~17 rules
-    # ============================================================
 
     # faf=low: semua → sangat_tinggi → 1 rule
     rule_ob_faf_low = ctrl.Rule(
@@ -406,9 +388,7 @@ def fuzzy_system(bmi_thresh, defuzz_method):
         bmi["obese"] & faf["high"] & fcvc["high"] & (ncp["low"] | ncp["medium"]), score["tinggi"]
     )
 
-    # ============================================================
-    # KUMPULKAN SEMUA (~46 rules, output identik)
-    # ============================================================
+
     rules = [
         rule_uw,
         # Normal
@@ -793,19 +773,10 @@ elif menu == "⚙️ Konfigurasi Fuzzy":
     }
 
     # Untuk menampilkan di Streamlit:
-    st.subheader("📚 Ringkasan Rule Base (Representasi 243 Aturan)")
+    st.subheader("📚 Ringkasan Rule Base (Representasi 46 Aturan)")
     st.table(pd.DataFrame(rules_data))
     st.table(pd.DataFrame(rules_data))
-
-# ==========================================
-# HALAMAN 3: HITUNG & PERINGKAT SPK
-# ==========================================
-# ==========================================
-# HALAMAN 3: HITUNG & PERINGKAT SPK
-# ==========================================
-# ==========================================
-# HALAMAN 3: HITUNG & PERINGKAT SPK
-# ==========================================
+    
 elif menu == "🏆 Hitung & Peringkat SPK":
     st.title("🏆 Perhitungan SPK (Mode Cepat)")
 
